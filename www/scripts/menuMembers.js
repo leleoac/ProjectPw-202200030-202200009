@@ -190,7 +190,7 @@ MenuMember.prototype.createForm = function (member = null) {
     buttonContainer.appendChild(cancelButton);
     formContainer.appendChild(buttonContainer);
 
-    // ======== BOTÕES DE INSCRIÇÃO EM EVENTOS (se for edição) ========
+    // ======== BOTÕES DE INSCRIÇÃO / DESINSCRIÇÃO EM EVENTOS (se for edição) ========
     if (member) {
         let eventActionsContainer = document.createElement("div");
 
@@ -276,7 +276,8 @@ MenuMember.prototype.show = function () {
 };
 
 /**
- * Exibe o formulário de inscrição em evento.
+ * Exibe o formulário de inscrição em evento (apenas para eventos futuros,
+ * do tipo preferido e não inscritos ainda).
  */
 MenuMember.prototype.showEventRegistrationForm = function (member) {
     let container = document.getElementById("members");
@@ -295,7 +296,7 @@ MenuMember.prototype.showEventRegistrationForm = function (member) {
         .filter((event) =>
             member.preferredEventTypes.includes(event.type) &&
             !member.registeredEvents.includes(event) &&
-            new Date(event.date) > new Date()
+            new Date(event.date) > new Date() // só eventos futuros
         )
         .forEach((event) => {
             let option = document.createElement("option");
@@ -304,6 +305,7 @@ MenuMember.prototype.showEventRegistrationForm = function (member) {
             eventSelect.appendChild(option);
         });
 
+    // Caso não existam eventos elegíveis
     if (!eventSelect.childElementCount) {
         let message = document.createElement("p");
         message.textContent = "Não há eventos disponíveis para inscrição.";
@@ -321,6 +323,7 @@ MenuMember.prototype.showEventRegistrationForm = function (member) {
         return;
     }
 
+    // Se houver eventos elegíveis, mostra o <select> e os botões Aceitar/Cancelar
     formContainer.appendChild(eventSelect);
 
     let buttonContainer = document.createElement("div");
@@ -373,6 +376,7 @@ MenuMember.prototype.showEventUnregistrationForm = function (member) {
         eventSelect.appendChild(option);
     });
 
+    // Se o membro não estiver inscrito em nenhum evento
     if (!eventSelect.childElementCount) {
         let message = document.createElement("p");
         message.textContent = "Não há eventos para desinscrição.";
