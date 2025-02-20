@@ -4,437 +4,511 @@
 
 /**
  * @class Representa um membro do clube.
- * @constructor
- * @param {string} name - Nome do membro.
- * @param {string[]} preferredEventTypes - Tipos de eventos preferidos.
+ * @param {number|null} id  - ID do membro (vindo do BD) ou null se ainda não criado
+ * @param {string} name     - Nome do membro
+ * @param {number[]} preferredEventTypeIds - Lista de IDs de tipos de evento preferidos
+ * @param {number[]} eventIds             - Lista de IDs de eventos em que está inscrito
  */
-let Member = function Member(name = "", preferredEventTypes = []) {
-    if (!Member.currentId) {
-        Member.currentId = 1; 
-    }
-    this.id = Member.currentId++;
-    this.name = name;
-    this.preferredEventTypes = preferredEventTypes; 
-    this.registeredEvents = [];
+let Member = function Member(id = null, name = "", preferredEventTypeIds = [], eventIds = []) {
+  this.id = id;
+  this.name = name;
+  this.preferredEventTypeIds = preferredEventTypeIds; 
+  this.eventIds = eventIds; // IDs dos eventos em que está inscrito
 };
 
 /**
- * Rótulos das propriedades de Member
+ * Rótulos para a tabela
  */
 Member.propertyLabels = {
-    id: "Id",
-    name: "Nome",
-    preferredEventTypes: "Tipos de Eventos Preferidos",
-    registeredEvents: "Eventos Inscritos"
+  id: "Id",
+  name: "Nome",
+  preferredEventTypeIds: "Tipos Preferidos (IDs)",
+  eventIds: "Inscrito em Eventos (IDs)"
 };
 
 /**
  * @class MenuMember
- * Gerencia a lista de membros e a UI.
+ * Gerencia a lista de membros (CRUD) e a interface com o usuário.
  */
 function MenuMember() {
-    this.members = [];
-    this.selectedMember = null;
+  this.members = [];
+  this.selectedMember = null;
 }
 
 /**
- * Cria a tabela que lista os membros.
+ * Cria a tabela a partir de this.members
  */
 MenuMember.prototype.toTable = function () {
-    let table = document.createElement("table");
-    let thead = document.createElement("thead");
-    let headerRow = document.createElement("tr");
+  let table = document.createElement("table");
+  let thead = document.createElement("thead");
+  let headerRow = document.createElement("tr");
 
-    for (let property in Member.propertyLabels) {
-        let th = document.createElement("th");
-        th.textContent = Member.propertyLabels[property];
-        headerRow.appendChild(th);
-    }
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
+  for (let prop in Member.propertyLabels) {
+    let th = document.createElement("th");
+    th.textContent = Member.propertyLabels[prop];
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
 
-    let tbody = document.createElement("tbody");
-    if (this.members.length > 0) {
-        this.members.forEach((member) => {
-            let row = document.createElement("tr");
+  let tbody = document.createElement("tbody");
+  if (this.members.length > 0) {
+    this.members.forEach((member) => {
+      let row = document.createElement("tr");
 
-            row.addEventListener("click", () => {
-                tbody.querySelectorAll("tr").forEach((r) => r.classList.remove("selected"));
-                row.classList.add("selected");
-                this.selectedMember = member;
-            });
+      row.addEventListener("click", () => {
+        tbody.querySelectorAll("tr").forEach(r => r.classList.remove("selected"));
+        row.classList.add("selected");
+        this.selectedMember = member;
+      });
 
-            for (let property in Member.propertyLabels) {
-                let cell = document.createElement("td");
-                if (Array.isArray(member[property])) {
-                    // Se for preferredEventTypes ou registeredEvents
-                    if (property === "registeredEvents") {
-                        // Exibe só as descrições dos eventos
-                        let eventNames = member.registeredEvents.map(evt => evt.description);
-                        cell.textContent = eventNames.join(", ");
-                    } else {
-                        // Ex: preferredEventTypes
-                        cell.textContent = member[property].join(", ");
-                    }
-                } else {
-                    cell.textContent = member[property];
-                }
-                row.appendChild(cell);
-            }
-            tbody.appendChild(row);
-        });
-    }
-    table.appendChild(tbody);
-    return table;
+      // Cria células na ordem: id, name, preferredEventTypeIds, eventIds
+      let cellId = document.createElement("td");
+      cellId.textContent = member.id;
+      row.appendChild(cellId);
+
+      let cellName = document.createElement("td");
+      cellName.textContent = member.name;
+      row.appendChild(cellName);
+
+      let cellPref = document.createElement("td");
+      cellPref.textContent = member.preferredEventTypeIds.join(", ");
+      row.appendChild(cellPref);
+
+      let cellEvents = document.createElement("td");
+      cellEvents.textContent = member.eventIds.join(", ");
+      row.appendChild(cellEvents);
+
+      tbody.appendChild(row);
+    });
+  }
+  table.appendChild(tbody);
+  return table;
 };
 
 /**
- * Cria o formulário de criar/editar Membro, com layout em coluna e checkboxes em grid.
+ * Cria formulário de criar/editar Membro.
+ * Se member for null => criação
+ * Se member existir => edição
  */
 MenuMember.prototype.createForm = function (member = null) {
-    // Cria um <form> (aproveita o estilo "form { ... }" do CSS)
-    let formContainer = document.createElement("form");
+  let formContainer = document.createElement("form");
 
-    // Título do formulário
-    let formTitle = document.createElement("h3");
-    formTitle.textContent = member ? "Editar Membro" : "Criar Membro";
-    formContainer.appendChild(formTitle);
+  let formTitle = document.createElement("h3");
+  formTitle.textContent = member ? "Editar Membro" : "Criar Membro";
+  formContainer.appendChild(formTitle);
 
-    // ======== CAMPO NOME ========
-    let nameLabel = document.createElement("label");
-    nameLabel.textContent = "Nome";
-    nameLabel.style.display = "block";  // Força label acima do input
+  // Campo Nome
+  let nameLabel = document.createElement("label");
+  nameLabel.textContent = "Nome:";
+  nameLabel.style.display = "block";
 
-    let nameInput = document.createElement("input");
-    nameInput.type = "text";
-    nameInput.id = "memberName";
-    if (member) {
-        nameInput.value = member.name;
+  let nameInput = document.createElement("input");
+  nameInput.type = "text";
+  if (member) {
+    nameInput.value = member.name;
+  }
+
+  formContainer.appendChild(nameLabel);
+  formContainer.appendChild(nameInput);
+
+  // Checkboxes de tipos de evento preferidos
+  let eventTypesLabel = document.createElement("label");
+  eventTypesLabel.textContent = "Tipos de Evento Preferidos:";
+  eventTypesLabel.style.display = "block";
+  formContainer.appendChild(eventTypesLabel);
+
+  // Container para checkboxes
+  let eventTypesContainer = document.createElement("div");
+  eventTypesContainer.style.display = "grid";
+  eventTypesContainer.style.gridTemplateColumns = "1fr 1fr";
+  eventTypesContainer.style.gap = "0.5rem";
+
+  // Precisamos de uma lista de eventTypes do MenuEventType
+  // (já carregada em MenuEventType.default.eventTypes)
+  MenuEventType.default.eventTypes.forEach((et) => {
+    let checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = et.id; // ID do BD do tipo
+    checkbox.id = `member_pref_${et.id}`;
+    if (member && member.preferredEventTypeIds.includes(et.id)) {
+      checkbox.checked = true;
     }
 
-    formContainer.appendChild(nameLabel);
-    formContainer.appendChild(nameInput);
+    let lbl = document.createElement("label");
+    lbl.textContent = `${et.description} (id=${et.id})`;
+    lbl.htmlFor = `member_pref_${et.id}`;
 
-    // ======== CHECKBOXES DE TIPOS DE EVENTO ========
-    let eventTypesLabel = document.createElement("label");
-    eventTypesLabel.textContent = "Tipos de Eventos Preferidos";
-    eventTypesLabel.style.display = "block"; // Quebra linha
-    formContainer.appendChild(eventTypesLabel);
+    let divBox = document.createElement("div");
+    divBox.appendChild(checkbox);
+    divBox.appendChild(lbl);
 
-    // Container para os checkboxes em 2 colunas
-    let eventTypesContainer = document.createElement("div");
-    eventTypesContainer.style.display = "grid";
-    eventTypesContainer.style.gridTemplateColumns = "1fr 1fr";
-    eventTypesContainer.style.gap = "0.5rem";
+    eventTypesContainer.appendChild(divBox);
+  });
 
-    // Cria um checkbox para cada tipo de evento
-    MenuEventType.default.eventTypes.forEach((type) => {
-        let checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.value = type.description;
-        checkbox.id = `eventType_${type.description}`;
-        if (member && member.preferredEventTypes.includes(type.description)) {
-            checkbox.checked = true;
-        }
+  formContainer.appendChild(eventTypesContainer);
 
-        let lbl = document.createElement("label");
-        lbl.htmlFor = `eventType_${type.description}`;
-        lbl.textContent = type.description;
+  // Botões Gravar / Cancelar
+  let buttonContainer = document.createElement("div");
 
-        // Agrupa checkbox + label dentro de um "div" para ficar arrumado
-        let checkboxGroup = document.createElement("div");
-        checkboxGroup.appendChild(checkbox);
-        checkboxGroup.appendChild(lbl);
+  let saveButton = document.createElement("button");
+  saveButton.textContent = "Gravar";
+  saveButton.type = "button";
+  saveButton.addEventListener("click", () => {
+    let nameVal = nameInput.value.trim();
+    let checkedTypeIds = Array.from(eventTypesContainer.querySelectorAll("input:checked"))
+                              .map(cb => parseInt(cb.value));
 
-        eventTypesContainer.appendChild(checkboxGroup);
-    });
-
-    formContainer.appendChild(eventTypesContainer);
-
-    // ======== BOTÕES GRAVAR / CANCELAR ========
-    let buttonContainer = document.createElement("div");
-
-    let saveButton = document.createElement("button");
-    saveButton.textContent = "Gravar";
-    saveButton.type = "button"; // evita submissão de form
-    saveButton.addEventListener("click", () => {
-        let name = nameInput.value.trim();
-        // Pega todos os checkboxes marcados
-        let preferredEventTypes = Array.from(
-            eventTypesContainer.querySelectorAll("input[type='checkbox']:checked")
-        ).map((checkbox) => checkbox.value);
-
-        if (!name) {
-            alert("O membro precisa de ter nome!");
-        } else {
-            if (member) {
-                // Edição
-                member.name = name;
-                member.preferredEventTypes = preferredEventTypes;
-            } else {
-                // Criação
-                this.members.push(new Member(name, preferredEventTypes));
-            }
-            this.show();
-        }
-    });
-
-    let cancelButton = document.createElement("button");
-    cancelButton.textContent = "Cancelar";
-    cancelButton.type = "button";
-    cancelButton.addEventListener("click", () => {
-        this.show();
-    });
-
-    buttonContainer.appendChild(saveButton);
-    buttonContainer.appendChild(cancelButton);
-    formContainer.appendChild(buttonContainer);
-
-    // ======== BOTÕES DE INSCRIÇÃO / DESINSCRIÇÃO EM EVENTOS (se for edição) ========
-    if (member) {
-        let eventActionsContainer = document.createElement("div");
-
-        let registerButton = document.createElement("button");
-        registerButton.textContent = "Inscrever em Evento";
-        registerButton.type = "button";
-        registerButton.addEventListener("click", () => {
-            this.showEventRegistrationForm(member);
-        });
-
-        let unregisterButton = document.createElement("button");
-        unregisterButton.textContent = "Desinscrever de Evento";
-        unregisterButton.type = "button";
-        unregisterButton.addEventListener("click", () => {
-            this.showEventUnregistrationForm(member);
-        });
-
-        eventActionsContainer.appendChild(registerButton);
-        eventActionsContainer.appendChild(unregisterButton);
-        formContainer.appendChild(eventActionsContainer);
+    if (!nameVal) {
+      alert("O membro precisa de ter nome!");
+      return;
     }
 
-    return formContainer;
+    // Se member => PUT, senão => POST
+    if (member) {
+      // PUT /members/:id
+      fetch(`/members/${member.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: nameVal,
+          preferredEventTypeIds: checkedTypeIds
+        })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Falha ao atualizar membro");
+        return res.json();
+      })
+      .then(() => {
+        this.show(); 
+      })
+      .catch(err => alert(err.message));
+    } else {
+      // POST /members
+      fetch("/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: nameVal,
+          preferredEventTypeIds: checkedTypeIds
+        })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Falha ao criar membro");
+        return res.json();
+      })
+      .then(() => {
+        this.show(); 
+      })
+      .catch(err => alert(err.message));
+    }
+  });
+
+  let cancelButton = document.createElement("button");
+  cancelButton.textContent = "Cancelar";
+  cancelButton.type = "button";
+  cancelButton.addEventListener("click", () => {
+    this.show();
+  });
+
+  buttonContainer.appendChild(saveButton);
+  buttonContainer.appendChild(cancelButton);
+  formContainer.appendChild(buttonContainer);
+
+  // Se estiver editando, botões de Inscrição/Desinscrição
+  if (member) {
+    let eventActionsContainer = document.createElement("div");
+
+    let registerButton = document.createElement("button");
+    registerButton.type = "button";
+    registerButton.textContent = "Inscrever em Evento";
+    registerButton.addEventListener("click", () => {
+      this.showEventRegistrationForm(member);
+    });
+
+    let unregisterButton = document.createElement("button");
+    unregisterButton.type = "button";
+    unregisterButton.textContent = "Desinscrever de Evento";
+    unregisterButton.addEventListener("click", () => {
+      this.showEventUnregistrationForm(member);
+    });
+
+    eventActionsContainer.appendChild(registerButton);
+    eventActionsContainer.appendChild(unregisterButton);
+    formContainer.appendChild(eventActionsContainer);
+  }
+
+  return formContainer;
 };
 
 /**
- * Renderiza o formulário (criar/editar) no container #members.
+ * Mostra o formulário de criar/editar
  */
 MenuMember.prototype.showForm = function (member = null) {
-    let container = document.getElementById("members");
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
-    container.appendChild(this.createForm(member));
+  let container = document.getElementById("members");
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+  container.appendChild(this.createForm(member));
 };
 
 /**
- * Mostra a tela principal (listagem + botões CRUD).
+ * Exibe lista de membros (GET /members).
  */
 MenuMember.prototype.show = function () {
-    let container = document.getElementById("members");
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
+  let container = document.getElementById("members");
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
 
-    container.appendChild(this.toTable());
+  // 1) Garante que eventTypes estão carregados antes (se quiser)
+  MenuEventType.default.loadFromServer()
+    .then(() => {
+      // 2) Agora GET /members
+      return fetch("/members");
+    })
+    .then(res => res.json())
+    .then(data => {
+      // data é array de objetos {id, name, preferredEventTypeIds, eventIds}
+      this.members = data.map(m => new Member(
+        m.id, 
+        m.name, 
+        m.preferredEventTypeIds || [], 
+        m.eventIds || []
+      ));
+      
+      // Monta tabela
+      container.appendChild(this.toTable());
 
-    let buttonContainer = document.createElement("div");
+      // Botões CRUD (Criar, Editar, Apagar)
+      let buttonContainer = document.createElement("div");
 
-    let createButton = document.createElement("button");
-    createButton.textContent = "Criar";
-    createButton.addEventListener("click", () => {
+      let createButton = document.createElement("button");
+      createButton.textContent = "Criar";
+      createButton.addEventListener("click", () => {
         this.showForm();
-    });
+      });
 
-    let editButton = document.createElement("button");
-    editButton.textContent = "Editar";
-    editButton.addEventListener("click", () => {
+      let editButton = document.createElement("button");
+      editButton.textContent = "Editar";
+      editButton.addEventListener("click", () => {
         if (this.selectedMember) {
-            this.showForm(this.selectedMember);
+          this.showForm(this.selectedMember);
         } else {
-            alert("Tem de selecionar um membro!");
+          alert("Tem de selecionar um membro!");
         }
-    });
+      });
 
-    let deleteButton = document.createElement("button");
-    deleteButton.textContent = "Apagar";
-    deleteButton.addEventListener("click", () => {
-        if (this.selectedMember) {
-            // Exclui o membro
-            this.members = this.members.filter((m) => m !== this.selectedMember);
-            this.selectedMember = null;
-            this.show();
-        } else {
-            alert("Tem de selecionar um membro!");
+      let deleteButton = document.createElement("button");
+      deleteButton.textContent = "Apagar";
+      deleteButton.addEventListener("click", () => {
+        if (!this.selectedMember) {
+          alert("Tem de selecionar um membro!");
+          return;
         }
-    });
+        if (!confirm(`Deseja apagar o membro "${this.selectedMember.name}"?`)) {
+          return;
+        }
 
-    buttonContainer.appendChild(createButton);
-    buttonContainer.appendChild(editButton);
-    buttonContainer.appendChild(deleteButton);
-    container.appendChild(buttonContainer);
+        // DELETE /members/:id
+        fetch(`/members/${this.selectedMember.id}`, {
+          method: "DELETE"
+        })
+        .then(res => {
+          if (!res.ok) throw new Error("Falha ao apagar membro (pode haver restrição).");
+          return res.json();
+        })
+        .then(() => {
+          this.show();
+        })
+        .catch(err => alert(err.message));
+      });
+
+      buttonContainer.appendChild(createButton);
+      buttonContainer.appendChild(editButton);
+      buttonContainer.appendChild(deleteButton);
+
+      container.appendChild(buttonContainer);
+    })
+    .catch(err => {
+      console.error("Erro ao carregar membros:", err);
+      alert("Falha ao carregar membros do servidor!");
+    });
 };
 
 /**
- * Exibe o formulário de inscrição em evento (apenas para eventos futuros,
- * do tipo preferido e não inscritos ainda).
+ * Formulário de inscrição em evento
  */
 MenuMember.prototype.showEventRegistrationForm = function (member) {
-    let container = document.getElementById("members");
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
+  let container = document.getElementById("members");
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
 
-    let formContainer = document.createElement("div");
-    let formTitle = document.createElement("h3");
-    formTitle.textContent = "Inscrição em Evento";
-    formContainer.appendChild(formTitle);
+  let formContainer = document.createElement("div");
+  let formTitle = document.createElement("h3");
+  formTitle.textContent = "Inscrição em Evento";
+  formContainer.appendChild(formTitle);
 
-    // Filtra eventos disponíveis
-    let eventSelect = document.createElement("select");
-    MenuEvent.default.events
-        .filter((event) =>
-            member.preferredEventTypes.includes(event.type) &&
-            !member.registeredEvents.includes(event) &&
-            new Date(event.date) > new Date() // só eventos futuros
-        )
-        .forEach((event) => {
-            let option = document.createElement("option");
-            option.value = event.id;
-            option.textContent = `${event.type} - ${event.description} (${event.date})`;
-            eventSelect.appendChild(option);
-        });
+  // Filtra eventos ainda não inscritos e cujo "type" (ou typeId) esteja em member.preferredEventTypeIds
+  // Ajuste conforme seu MenuEvent. Se "ev.type" for ID, ok.
+  let eventSelect = document.createElement("select");
 
-    // Caso não existam eventos elegíveis
-    if (!eventSelect.childElementCount) {
-        let message = document.createElement("p");
-        message.textContent = "Não há eventos disponíveis para inscrição.";
-        formContainer.appendChild(message);
-
-        // Botão para voltar
-        let backBtn = document.createElement("button");
-        backBtn.textContent = "Voltar";
-        backBtn.addEventListener("click", () => {
-            this.show();
-        });
-        formContainer.appendChild(backBtn);
-
-        container.appendChild(formContainer);
-        return;
-    }
-
-    // Se houver eventos elegíveis, mostra o <select> e os botões Aceitar/Cancelar
-    formContainer.appendChild(eventSelect);
-
-    let buttonContainer = document.createElement("div");
-
-    let acceptButton = document.createElement("button");
-    acceptButton.textContent = "Aceitar";
-    acceptButton.addEventListener("click", () => {
-        let selectedEventId = eventSelect.value;
-        if (selectedEventId) {
-            let selectedEvent = MenuEvent.default.events.find((evt) => evt.id == selectedEventId);
-            if (selectedEvent) {
-                member.registeredEvents.push(selectedEvent);
-            }
-            this.show();
-        }
+  MenuEvent.default.events
+    .filter(ev => 
+      !member.eventIds.includes(ev.id) &&
+      member.preferredEventTypeIds.includes(ev.type) 
+    )
+    .forEach(ev => {
+      let option = document.createElement("option");
+      option.value = ev.id;
+      option.textContent = `${ev.type} - ${ev.description} (${ev.date})`;
+      eventSelect.appendChild(option);
     });
 
-    let cancelButton = document.createElement("button");
-    cancelButton.textContent = "Cancelar";
-    cancelButton.addEventListener("click", () => {
-        this.show();
+  if (!eventSelect.childElementCount) {
+    let msg = document.createElement("p");
+    msg.textContent = "Não há eventos elegíveis para inscrição.";
+    formContainer.appendChild(msg);
+
+    let backBtn = document.createElement("button");
+    backBtn.textContent = "Voltar";
+    backBtn.addEventListener("click", () => {
+      this.show();
     });
-
-    buttonContainer.appendChild(acceptButton);
-    buttonContainer.appendChild(cancelButton);
-    formContainer.appendChild(buttonContainer);
-
+    formContainer.appendChild(backBtn);
     container.appendChild(formContainer);
+    return;
+  }
+
+  formContainer.appendChild(eventSelect);
+
+  let buttonContainer = document.createElement("div");
+
+  let acceptButton = document.createElement("button");
+  acceptButton.textContent = "Aceitar";
+  acceptButton.addEventListener("click", () => {
+    let selectedEventId = parseInt(eventSelect.value);
+    if (!selectedEventId) return;
+
+    // POST /members/:id/events
+    fetch(`/members/${member.id}/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId: selectedEventId })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("Falha ao inscrever no evento");
+      return res.json();
+    })
+    .then(() => {
+      this.show(); 
+    })
+    .catch(err => alert(err.message));
+  });
+
+  let cancelButton = document.createElement("button");
+  cancelButton.textContent = "Cancelar";
+  cancelButton.addEventListener("click", () => {
+    this.show();
+  });
+
+  buttonContainer.appendChild(acceptButton);
+  buttonContainer.appendChild(cancelButton);
+  formContainer.appendChild(buttonContainer);
+
+  container.appendChild(formContainer);
 };
 
 /**
- * Exibe o formulário de desinscrição de evento.
+ * Formulário de desinscrição de evento
  */
 MenuMember.prototype.showEventUnregistrationForm = function (member) {
-    let container = document.getElementById("members");
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
+  let container = document.getElementById("members");
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+
+  let formContainer = document.createElement("div");
+  let formTitle = document.createElement("h3");
+  formTitle.textContent = "Desinscrever de Evento";
+  formContainer.appendChild(formTitle);
+
+  let eventSelect = document.createElement("select");
+
+  // Lista apenas eventos em que o membro está inscrito
+  member.eventIds.forEach(evId => {
+    let evObj = MenuEvent.default.events.find(e => e.id === evId);
+    if (evObj) {
+      let option = document.createElement("option");
+      option.value = evObj.id;
+      option.textContent = `${evObj.type} - ${evObj.description} (${evObj.date})`;
+      eventSelect.appendChild(option);
     }
+  });
 
-    let formContainer = document.createElement("div");
-    let formTitle = document.createElement("h3");
-    formTitle.textContent = "Desinscrição de Evento";
-    formContainer.appendChild(formTitle);
+  if (!eventSelect.childElementCount) {
+    let msg = document.createElement("p");
+    msg.textContent = "Não há eventos para desinscrever.";
+    formContainer.appendChild(msg);
 
-    let eventSelect = document.createElement("select");
-    member.registeredEvents.forEach((event) => {
-        let option = document.createElement("option");
-        option.value = event.id;
-        option.textContent = `${event.type} - ${event.description} (${event.date})`;
-        eventSelect.appendChild(option);
+    let backBtn = document.createElement("button");
+    backBtn.textContent = "Voltar";
+    backBtn.addEventListener("click", () => {
+      this.show();
     });
-
-    // Se o membro não estiver inscrito em nenhum evento
-    if (!eventSelect.childElementCount) {
-        let message = document.createElement("p");
-        message.textContent = "Não há eventos para desinscrição.";
-        formContainer.appendChild(message);
-
-        let backBtn = document.createElement("button");
-        backBtn.textContent = "Voltar";
-        backBtn.addEventListener("click", () => {
-            this.show();
-        });
-        formContainer.appendChild(backBtn);
-
-        container.appendChild(formContainer);
-        return;
-    }
-
-    formContainer.appendChild(eventSelect);
-
-    let buttonContainer = document.createElement("div");
-
-    let acceptButton = document.createElement("button");
-    acceptButton.textContent = "Aceitar";
-    acceptButton.addEventListener("click", () => {
-        let selectedEventId = eventSelect.value;
-        if (selectedEventId) {
-            member.registeredEvents = member.registeredEvents.filter(
-                (evt) => evt.id != selectedEventId
-            );
-        }
-        this.show();
-    });
-
-    let cancelButton = document.createElement("button");
-    cancelButton.textContent = "Cancelar";
-    cancelButton.addEventListener("click", () => {
-        this.show();
-    });
-
-    buttonContainer.appendChild(acceptButton);
-    buttonContainer.appendChild(cancelButton);
-    formContainer.appendChild(buttonContainer);
-
+    formContainer.appendChild(backBtn);
     container.appendChild(formContainer);
+    return;
+  }
+
+  formContainer.appendChild(eventSelect);
+
+  let buttonContainer = document.createElement("div");
+
+  let acceptButton = document.createElement("button");
+  acceptButton.textContent = "Aceitar";
+  acceptButton.addEventListener("click", () => {
+    let selectedEventId = parseInt(eventSelect.value);
+    if (!selectedEventId) return;
+
+    // DELETE /members/:id/events/:eventId
+    fetch(`/members/${member.id}/events/${selectedEventId}`, {
+      method: "DELETE"
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("Falha ao desinscrever do evento");
+      return res.json();
+    })
+    .then(() => {
+      this.show();
+    })
+    .catch(err => alert(err.message));
+  });
+
+  let cancelButton = document.createElement("button");
+  cancelButton.textContent = "Cancelar";
+  cancelButton.addEventListener("click", () => {
+    this.show();
+  });
+
+  buttonContainer.appendChild(acceptButton);
+  buttonContainer.appendChild(cancelButton);
+  formContainer.appendChild(buttonContainer);
+
+  container.appendChild(formContainer);
 };
 
-/** Objeto singleton default */
+/** Singleton */
 MenuMember.default = new MenuMember();
 
-/**
- * Listener DOMContentLoaded para ativar o botão “Membros”
- * (Se você já tiver outro listener igual, pode remover isto.)
- */
+// Se tiver <a id="showMembers"> no HTML
 document.addEventListener("DOMContentLoaded", () => {
-    let link = document.getElementById("showMembers");
-    if (link) {
-        link.addEventListener("click", (event) => {
-            event.preventDefault();
-            MenuMember.default.show();
-        });
-    }
+  let link = document.getElementById("showMembers");
+  if (link) {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      MenuMember.default.show();
+    });
+  }
 });

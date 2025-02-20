@@ -4,272 +4,272 @@
 
 /**
  * @class Representa um tipo de evento.
- * @letructs EventType
- * @param {string} description - Descrição do tipo de evento.
- *
- * @property {number} id - ID único do evento, gerado automaticamente.
- * @property {string} description - Descrição textual do tipo de evento.
+ * @constructor
+ * @param {string} description - Descrição do tipo de evento (ex.: "Prova").
+ * @param {number|null} id - ID (chave primária no BD).
  */
-
-let EventType = function EventType(description = "") {
-    if (!EventType.currentId) {
-        EventType.currentId = 1; // Inicializa o contador global de IDs.
-    }
-    this.id = EventType.currentId++; // Gera um ID único automaticamente.
-    this.description = description; // Descrição fornecida ao criar o evento.
+let EventType = function (description = "", id = null) {
+  this.id = id;
+  this.description = description;
 };
 
-/**
- * @memberof EventType
- * @property {object} propertyLabels - Rótulos das propriedades da classe, utilizados para criar cabeçalhos na tabela.
- * @readonly
- */
+/** Rótulos para exibir na tabela */
 EventType.propertyLabels = {
-    id: "Id",
-    description: "Descrição"
+  id: "Id",
+  description: "Descrição"
 };
 
 /**
- * @class Gerencia a lista de tipos de eventos e sua interação com a interface do usuário.
- * @letructs MenuEventType
- *
- * @property {EventType[]} eventTypes - Lista de todos os tipos de eventos criados.
- * @property {EventType|null} selectedEvent - Referência ao evento atualmente selecionado (ou `null` se nenhum estiver selecionado).
+ * @class MenuEventType
+ * Gerencia os tipos de evento e a UI (CRUD com fetch).
  */
 function MenuEventType() {
-    this.eventTypes = [];
-    this.selectedEvent = null; // Evento selecionado para edição ou exclusão.
+  this.eventTypes = [];        
+  this.selectedEventType = null;
 }
 
 /**
- * Gera a tabela que exibe os tipos de eventos.
- * 
- * @memberof MenuEventType
- * @returns {HTMLElement} Tabela HTML contendo os eventos cadastrados.
+ * Cria a tabela HTML a partir de this.eventTypes
  */
 MenuEventType.prototype.toTable = function () {
-    let table = document.createElement("table"); 
-    let thead = document.createElement("thead");
-    let headerRow = document.createElement("tr");
+  let table = document.createElement("table");
+  let thead = document.createElement("thead");
+  let headerRow = document.createElement("tr");
 
-    for (let property in EventType.propertyLabels) {
-        let th = document.createElement("th");
-        th.textContent = EventType.propertyLabels[property];
-        headerRow.appendChild(th);
-    }
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
+  for (let prop in EventType.propertyLabels) {
+    let th = document.createElement("th");
+    th.textContent = EventType.propertyLabels[prop];
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
 
-    let tbody = document.createElement("tbody");
-    if (this.eventTypes.length > 0) {
-        this.eventTypes.forEach((eventType) => {
-            let row = document.createElement("tr");
+  let tbody = document.createElement("tbody");
 
-            row.addEventListener("click", () => {
-                tbody.querySelectorAll("tr").forEach((r) => r.classList.remove("selected")); // Remove seleção anterior.
-                row.classList.add("selected");
-                this.selectedEvent = eventType; 
-            });
+  if (this.eventTypes.length > 0) {
+    this.eventTypes.forEach((typeObj) => {
+      let row = document.createElement("tr");
 
-            for (let property in EventType.propertyLabels) {
-                let cell = document.createElement("td");
-                cell.textContent = eventType[property];
-                row.appendChild(cell);
-            }
-            tbody.appendChild(row);
-        });
-    }
-    table.appendChild(tbody);
+      row.addEventListener("click", () => {
+        // Marca/desmarca seleção
+        tbody.querySelectorAll("tr").forEach(r => r.classList.remove("selected"));
+        row.classList.add("selected");
+        this.selectedEventType = typeObj;
+      });
 
-    return table;
+      // Cria as TDs: id e description
+      let cellId = document.createElement("td");
+      cellId.textContent = typeObj.id;
+      row.appendChild(cellId);
+
+      let cellDescription = document.createElement("td");
+      cellDescription.textContent = typeObj.description;
+      row.appendChild(cellDescription);
+
+      tbody.appendChild(row);
+    });
+  }
+  table.appendChild(tbody);
+  return table;
 };
 
 /**
- * Cria um formulário HTML para adicionar ou editar um evento.
- *
- * @memberof MenuEventType
- * @param {EventType|null} event - O evento a ser editado, ou `null` para criar um novo evento.
- * @returns {HTMLElement} Formulário HTML para criação ou edição.
+ * Cria o formulário para criar/editar um tipo de evento.
  */
-MenuEventType.prototype.createForm = function (event = null) {
-    let formContainer = document.createElement("div");
+MenuEventType.prototype.createForm = function (typeObj = null) {
+  let formContainer = document.createElement("form");
 
-    let formTitle = document.createElement("h3");
-    formTitle.textContent = event ? "Editar Tipo de Evento" : "Criar Tipo de Evento";
-    formContainer.appendChild(formTitle);
+  let formTitle = document.createElement("h3");
+  formTitle.textContent = typeObj ? "Editar Tipo de Evento" : "Criar Tipo de Evento";
+  formContainer.appendChild(formTitle);
 
-    let label = document.createElement("label");
-    label.textContent = "Descrição: ";
-    let input = document.createElement("input");
-    input.type = "text";
-    input.id = "eventDescription";
-    if (event) {
-        input.value = event.description; 
+  let labelDesc = document.createElement("label");
+  labelDesc.textContent = "Descrição: ";
+  labelDesc.style.display = "block";
+
+  let inputDesc = document.createElement("input");
+  inputDesc.type = "text";
+  if (typeObj) {
+    inputDesc.value = typeObj.description;
+  }
+
+  formContainer.appendChild(labelDesc);
+  formContainer.appendChild(inputDesc);
+
+  // Botões
+  let buttonContainer = document.createElement("div");
+
+  let saveButton = document.createElement("button");
+  saveButton.textContent = "Gravar";
+  saveButton.type = "button";
+  saveButton.addEventListener("click", () => {
+    let description = inputDesc.value.trim();
+    if (!description) {
+      alert("Descrição é obrigatória!");
+      return;
     }
-    formContainer.appendChild(label);
-    formContainer.appendChild(input);
 
-    let buttonContainer = document.createElement("div");
+    // Se typeObj for null => criação (POST), se existir => edição (PUT)
+    if (typeObj) {
+      // PUT /eventtypes/:id
+      fetch(`/eventtypes/${typeObj.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Falha ao atualizar tipo de evento");
+        return res.json();
+      })
+      .then(() => {
+        this.show(); // recarrega a listagem
+      })
+      .catch(err => alert(err.message));
+    } else {
+      // POST /eventtypes
+      fetch("/eventtypes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Falha ao criar tipo de evento");
+        return res.json();
+      })
+      .then(() => {
+        this.show();
+      })
+      .catch(err => alert(err.message));
+    }
+  });
 
-    let saveButton = document.createElement("button");
-    saveButton.textContent = "Gravar";
-    saveButton.addEventListener("click", () => {
-        let description = input.value.trim();
-        if (!description) {
-            alert("Descrição requirida!");;
+  let cancelButton = document.createElement("button");
+  cancelButton.type = "button";
+  cancelButton.textContent = "Cancelar";
+  cancelButton.addEventListener("click", () => {
+    this.show();
+  });
+
+  buttonContainer.appendChild(saveButton);
+  buttonContainer.appendChild(cancelButton);
+  formContainer.appendChild(buttonContainer);
+
+  return formContainer;
+};
+
+/**
+ * Exibe o formulário no container #eventTypes
+ */
+MenuEventType.prototype.showForm = function (typeObj = null) {
+  let container = document.getElementById("eventTypes");
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+  container.appendChild(this.createForm(typeObj));
+};
+
+/**
+ * Exibe a lista de tipos de evento, buscando do servidor (GET /eventtypes).
+ */
+MenuEventType.prototype.show = function() {
+  let container = document.getElementById("eventTypes");
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+
+  // 1) Busca do servidor
+  fetch("/eventtypes")
+    .then(res => res.json())
+    .then(data => {
+      // data é array de { id, description }
+      // convertendo em instâncias da classe EventType
+      this.eventTypes = data.map(obj => new EventType(obj.description, obj.id));
+
+      // 2) Cria a tabela
+      container.appendChild(this.toTable());
+
+      // 3) Botões de criar, editar, apagar
+      let buttonContainer = document.createElement("div");
+
+      let createButton = document.createElement("button");
+      createButton.textContent = "Criar";
+      createButton.addEventListener("click", () => {
+        this.showForm();
+      });
+
+      let editButton = document.createElement("button");
+      editButton.textContent = "Editar";
+      editButton.addEventListener("click", () => {
+        if (this.selectedEventType) {
+          this.showForm(this.selectedEventType);
         } else {
-            if (event) {
-                event.description = description; 
-            } else {
-                this.eventTypes.push(new EventType(description));
-            }
-            this.show(); 
+          alert("Selecione um tipo de evento!");
         }
+      });
+
+      let deleteButton = document.createElement("button");
+      deleteButton.textContent = "Apagar";
+      deleteButton.addEventListener("click", () => {
+        if (!this.selectedEventType) {
+          alert("Selecione um tipo de evento!");
+          return;
+        }
+        if (!confirm(`Tem certeza que deseja apagar "${this.selectedEventType.description}"?`)) {
+          return;
+        }
+
+        // DELETE /eventtypes/:id
+        fetch(`/eventtypes/${this.selectedEventType.id}`, {
+          method: "DELETE"
+        })
+        .then(res => {
+          if (!res.ok) throw new Error("Falha ao apagar tipo de evento (pode estar em uso).");
+          return res.json();
+        })
+        .then(() => {
+          this.show();
+        })
+        .catch(err => alert(err.message));
+      });
+
+      buttonContainer.appendChild(createButton);
+      buttonContainer.appendChild(editButton);
+      buttonContainer.appendChild(deleteButton);
+
+      container.appendChild(buttonContainer);
+    })
+    .catch(err => {
+      console.error("Erro ao carregar tipos de evento:", err);
+      alert("Falha ao carregar tipos de evento do servidor!");
     });
-
-    let cancelButton = document.createElement("button");
-    cancelButton.textContent = "Cancelar";
-    cancelButton.addEventListener("click", () => {
-        this.show(); 
-    });
-
-    buttonContainer.appendChild(saveButton);
-    buttonContainer.appendChild(cancelButton);
-    formContainer.appendChild(buttonContainer);
-
-    return formContainer;
 };
 
-/**
- * Exibe a tabela de eventos e os botões de ação.
- *
- * @memberof MenuEventType
+/** 
+ * Método opcional para apenas carregar eventTypes (sem exibir na tela).
+ * Útil para quando precisamos ter a lista antes de abrir Membros. 
  */
-MenuEventType.prototype.show = function () {
-    let container = document.getElementById("eventTypes");
-
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
-
-    container.appendChild(this.toTable());
-
-    let buttonContainer = document.createElement("div");
-
-    let createButton = document.createElement("button");
-    createButton.textContent = "Criar";
-    createButton.addEventListener("click", () => {
-        this.showForm(); 
+MenuEventType.prototype.loadFromServer = function() {
+  return fetch("/eventtypes")
+    .then(res => res.json())
+    .then(data => {
+      this.eventTypes = data.map(obj => new EventType(obj.description, obj.id));
+    })
+    .catch(err => {
+      console.error("Erro ao carregar eventtypes:", err);
+      alert("Falha ao carregar tipos de evento do servidor!");
     });
-
-    let editButton = document.createElement("button");
-    editButton.textContent = "Editar";
-    editButton.addEventListener("click", () => {
-        if (this.selectedEvent) {
-            this.showForm(this.selectedEvent);
-        } else {
-            alert("Tem de selecionar um item!");
-        }
-    });
-
-    let deleteButton = document.createElement("button");
-    deleteButton.textContent = "Apagar";
-    deleteButton.addEventListener("click", () => {
-        if (this.selectedEvent) {
-            const isUsed = MenuEvent.default.events.some(
-                (event) => event.type === this.selectedEvent.description
-            );
-
-            if (isUsed) {
-                alert(
-                    `Não pode apagar o tipo "${this.selectedEvent.description}" porque existem eventos associados a ele.`
-                );
-            } else {
-                this.eventTypes = this.eventTypes.filter(
-                    (eventType) => eventType !== this.selectedEvent
-                );
-                this.selectedEvent = null; 
-                this.show();
-            }
-        } else {
-            alert("Tem de selecionar um item!");
-        }
-    });
-
-    buttonContainer.appendChild(createButton);
-    buttonContainer.appendChild(editButton);
-    buttonContainer.appendChild(deleteButton);
-    container.appendChild(buttonContainer);
 };
 
-
-/**
- * Exibe o formulário de criação ou edição.
- *
- * @memberof MenuEventType
- * @param {EventType|null} event 
- */
-MenuEventType.prototype.showForm = function (event = null) {
-    let container = document.getElementById("eventTypes");
-
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
-
-    container.appendChild(this.createForm(event));
-};
-
-/**
- * Objeto default da classe MenuEventType.
- * @memberof MenuEventType
- * @type {MenuEventType}
- */
+/** Singleton */
 MenuEventType.default = new MenuEventType();
 
+// Se tiver <a id="showEventTypes"> no HTML
 document.addEventListener("DOMContentLoaded", () => {
-    let link = document.getElementById("showEventTypes");
-    link.addEventListener("click", (event) => {
-        event.preventDefault();
-        MenuEventType.default.show(); 
+  const link = document.getElementById("showEventTypes");
+  if (link) {
+    link.addEventListener("click", (evt) => {
+      evt.preventDefault();
+      MenuEventType.default.show();
     });
+  }
 });
-
-
-//Gerado pelo GPT
-document.addEventListener("DOMContentLoaded", () => {
-    const sections = ["members", "events", "eventTypes"];
-
-    // Função para ocultar todas as secções
-    function hideAllSections() {
-        sections.forEach((section) => {
-            const element = document.getElementById(section);
-            if (element) element.style.display = "none";
-        });
-    }
-
-    // Adiciona eventos aos links de navegação
-    document.getElementById("showMembers").addEventListener("click", (event) => {
-        event.preventDefault();
-        hideAllSections();
-        document.getElementById("members").style.display = "block"; // Mostra "Membros"
-        MenuMember.default.show();
-    });
-
-    document.getElementById("showEvents").addEventListener("click", (event) => {
-        event.preventDefault();
-        hideAllSections();
-        document.getElementById("events").style.display = "block"; // Mostra "Eventos"
-        MenuEvent.default.show();
-    });
-
-    document.getElementById("showEventTypes").addEventListener("click", (event) => {
-        event.preventDefault();
-        hideAllSections();
-        document.getElementById("eventTypes").style.display = "block"; // Mostra "Tipos de Eventos"
-        MenuEventType.default.show();
-    });
-
-    // Oculta todas as secções inicialmente
-    hideAllSections();
-});
-
